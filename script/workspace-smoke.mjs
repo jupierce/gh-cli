@@ -55,7 +55,8 @@ const server=http.createServer(async(req,res)=>{
     const pr={id:'PR_42',number:42,title:'Fixture PR',body:'Fixture body',state:'OPEN',url:'https://github.com/acme/project/pull/42',
       headRefName:'topic',baseRefName:'main',isCrossRepository:false,headRepositoryOwner:{login:'acme'},
       headRepository:{id:'R_1',name:'project',nameWithOwner:'acme/project',owner:{login:'acme'}},
-      baseRepository:{id:'R_1',name:'project',nameWithOwner:'acme/project',owner:{login:'acme'}},comments:{nodes:[],totalCount:0}};
+      baseRepository:{id:'R_1',name:'project',nameWithOwner:'acme/project',owner:{login:'acme'}},comments:{nodes:[],totalCount:0},
+      reviewRequests:{nodes:[{requestedReviewer:{__typename:'Team',name:'Reviewers',slug:'reviewers',combinedSlug:'upstream/reviewers'}},{requestedReviewer:{__typename:'User',login:'reviewer'}}]}};
     const repo={id:'R_1',name:'project',nameWithOwner:'acme/project',owner:{login:'acme'},defaultBranchRef:{name:'main'},viewerPermission:'WRITE',hasIssuesEnabled:true,
       pullRequest:pr,pullRequests:{nodes:[],totalCount:0},issue:{...pr,id:'I_42',url:'https://github.com/acme/project/issues/42'}};
     const data={viewer:{login:'chai-bot'},repository:repo,__type:{fields:[]}};
@@ -106,6 +107,11 @@ try {
     if (label.endsWith('preview')) {
       for (const request of r.requests.filter(r=>r.path==='/graphql')) {
         assert.ok(!/projectItems|projectCards/.test(request.body.query), 'workspace previews must not request project data');
+        assert.ok(!/organization\s*\{/.test(request.body.query), 'workspace previews must not require read:org');
+      }
+      if (label === 'PR preview') {
+        assert.match(r.stdout, /upstream\/reviewers \(Requested\)/);
+        assert.match(r.stdout, /reviewer \(Requested\)/);
       }
     }
   }

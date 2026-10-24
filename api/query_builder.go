@@ -423,6 +423,10 @@ func IssueGraphQL(fields []string) string {
 			q = append(q, issueCommentLast)
 		case "reviewRequests":
 			q = append(q, prReviewRequests)
+		case "repositoryReviewRequests": // pseudo-field for repository-scoped workspace previews
+			// Team.organization.login requires read:org even with no team
+			// requests. combinedSlug provides the same display identity.
+			q = append(q, `reviewRequests(first:100){nodes{requestedReviewer{__typename,...on User{login,name},...on Bot{login},...on Team{name,slug,combinedSlug}}}}`)
 		case "reviews":
 			q = append(q, prReviews)
 		case "latestReviews":

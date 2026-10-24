@@ -139,6 +139,7 @@ type RequestedReviewer struct {
 	Login        string `json:"login"`
 	Name         string `json:"name"`
 	Slug         string `json:"slug"`
+	CombinedSlug string `json:"combinedSlug,omitempty"`
 	Organization struct {
 		Login string `json:"login"`
 	} `json:"organization"`
@@ -150,6 +151,9 @@ const userTypeName = "User"
 
 func (r RequestedReviewer) LoginOrSlug() string {
 	if r.TypeName == teamTypeName {
+		if r.CombinedSlug != "" {
+			return r.CombinedSlug
+		}
 		return fmt.Sprintf("%s/%s", r.Organization.Login, r.Slug)
 	}
 	return r.Login
@@ -159,7 +163,7 @@ func (r RequestedReviewer) LoginOrSlug() string {
 // Teams are handled separately as "org/slug".
 func (r RequestedReviewer) DisplayName() string {
 	if r.TypeName == teamTypeName {
-		return fmt.Sprintf("%s/%s", r.Organization.Login, r.Slug)
+		return r.LoginOrSlug()
 	}
 	return actorDisplayName(r.TypeName, r.Login, r.Name)
 }

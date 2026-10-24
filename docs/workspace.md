@@ -48,6 +48,8 @@ claim that every native API query is already deployed server-side.
 Default PR and issue previews omit project metadata, whose access scope is
 separate from repository content. Explicit JSON field selections are preserved
 and validated by the gateway.
+Default PR previews use the team's `combinedSlug` to preserve its full `org/team`
+identity without the `read:org` scope required by a separate organization lookup.
 
 | Commands | Workspace behavior |
 | --- | --- |

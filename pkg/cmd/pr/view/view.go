@@ -123,6 +123,11 @@ func viewRun(opts *ViewOptions) error {
 			findOptions.Fields = slices.DeleteFunc(slices.Clone(defaultFields), func(field string) bool {
 				return field == "projectItems" || field == "projectCards"
 			})
+			for i, field := range findOptions.Fields {
+				if field == "reviewRequests" {
+					findOptions.Fields[i] = "repositoryReviewRequests"
+				}
+			}
 		}
 	}
 	pr, baseRepo, err := opts.Finder.Find(findOptions)
