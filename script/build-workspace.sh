@@ -10,7 +10,7 @@ export CGO_ENABLED=0
 export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(git show -s --format=%ct HEAD)}
 task_date=$(date -u -d "@$SOURCE_DATE_EPOCH" +%Y-%m-%d)
 task_source=$(git ls-files -cz --cached --others --exclude-standard | LC_ALL=C sort -zu | xargs -0 sha256sum | sha256sum | cut -d ' ' -f 1)
-task_version=2.103.2+chai.1
+task_version=2.103.2+chai.2
 task_dirty=no
 if [[ -n $(git status --porcelain --untracked-files=normal) ]]; then
   task_dirty=yes

@@ -15,6 +15,7 @@ import (
 	"github.com/cli/cli/v2/internal/gh"
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/internal/text"
+	"github.com/cli/cli/v2/internal/workspace"
 	issueShared "github.com/cli/cli/v2/pkg/cmd/issue/shared"
 	prShared "github.com/cli/cli/v2/pkg/cmd/pr/shared"
 	"github.com/cli/cli/v2/pkg/cmdutil"
@@ -142,6 +143,10 @@ func viewRun(opts *ViewOptions) error {
 		issueFeatures, issueErr := opts.Detector.IssueFeatures()
 		if issueErr == nil && issueFeatures.IssueRelationshipsSupported {
 			lookupFields.AddValues([]string{"blockedBy", "blocking"})
+		}
+		if workspace.FromHTTP(httpClient) != nil {
+			// Repository previews do not request separately scoped project data.
+			lookupFields.RemoveValues([]string{"projectItems", "projectCards"})
 		}
 	}
 

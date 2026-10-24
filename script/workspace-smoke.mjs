@@ -89,6 +89,8 @@ try {
     ['token-free REST',['api','user','--jq','.login']],
     ['pagination',['api','items','--paginate','--jq','.[].page']],
     ['implicit repo',['pr','view','42','--json','number,title']],
+    ['PR preview',['pr','view','42']],
+    ['issue preview',['issue','view','42']],
     ['auth status',['auth','status','--json','hosts']],
     ['PR create',['pr','create','--head','acme:topic','--base','main','--title','Test','--body','Body']],
     ['issue create',['issue','create','--title','Test','--body','Body']],
@@ -101,6 +103,11 @@ try {
   for(const [label,args] of commands) {
     const r=await run(label,gh,args);
     assert.equal(r.code,0,`${label}: ${r.stderr}`);
+    if (label.endsWith('preview')) {
+      for (const request of r.requests.filter(r=>r.path==='/graphql')) {
+        assert.ok(!/projectItems|projectCards/.test(request.body.query), 'workspace previews must not request project data');
+      }
+    }
   }
   const token=await run('auth token refused',gh,['auth','token']);
   assert.notEqual(token.code,0);assert.equal(token.stdout,'');

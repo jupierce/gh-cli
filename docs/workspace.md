@@ -2,7 +2,7 @@
 
 This fork adds an opt-in client for a credential-holding workspace manager.
 Base: upstream **v2.103.2**, commit `4f2cfe92e3499f8581bf39db77e0a1431fa7b55c`.
-Patch revision: **chai.1**. Wire protocol: **chai.github-proxy/v1**.
+Patch revision: **chai.2**. Wire protocol: **chai.github-proxy/v1**.
 The manager gateway is a separate implementation; these patches alone do not
 enable the feature in a deployed workspace.
 
@@ -45,6 +45,9 @@ Native parsing, API queries, output formatting, JSON selection, jq, templates,
 pagination, and exit behavior are retained for supported command forms. The manager
 must implement the read profiles those commands need; the client manifest does not
 claim that every native API query is already deployed server-side.
+Default PR and issue previews omit project metadata, whose access scope is
+separate from repository content. Explicit JSON field selections are preserved
+and validated by the gateway.
 
 | Commands | Workspace behavior |
 | --- | --- |

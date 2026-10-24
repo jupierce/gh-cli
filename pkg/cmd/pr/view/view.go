@@ -2,6 +2,8 @@ package view
 
 import (
 	"fmt"
+	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -13,6 +15,7 @@ import (
 	fd "github.com/cli/cli/v2/internal/featuredetection"
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/internal/text"
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/cli/cli/v2/pkg/cmd/pr/shared"
 	"github.com/cli/cli/v2/pkg/cmdutil"
 	"github.com/cli/cli/v2/pkg/iostreams"
@@ -21,8 +24,9 @@ import (
 )
 
 type ViewOptions struct {
-	IO      *iostreams.IOStreams
-	Browser browser.Browser
+	HttpClient func() (*http.Client, error)
+	IO         *iostreams.IOStreams
+	Browser    browser.Browser
 	// TODO projectsV1Deprecation
 	// Remove this detector since it is only used for test validation.
 	Detector fd.Detector
@@ -39,9 +43,10 @@ type ViewOptions struct {
 
 func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
 	opts := &ViewOptions{
-		IO:      f.IOStreams,
-		Browser: f.Browser,
-		Now:     time.Now,
+		HttpClient: f.HttpClient,
+		IO:         f.IOStreams,
+		Browser:    f.Browser,
+		Now:        time.Now,
 	}
 
 	cmd := &cobra.Command{
@@ -107,6 +112,18 @@ func viewRun(opts *ViewOptions) error {
 		findOptions.Fields = []string{"url"}
 	} else if opts.Exporter != nil {
 		findOptions.Fields = opts.Exporter.Fields()
+	} else if opts.HttpClient != nil {
+		client, err := opts.HttpClient()
+		if err != nil {
+			return err
+		}
+		if workspace.FromHTTP(client) != nil {
+			// Projects have a separate access scope from repository content.
+			// Explicit JSON selections still go through gateway validation.
+			findOptions.Fields = slices.DeleteFunc(slices.Clone(defaultFields), func(field string) bool {
+				return field == "projectItems" || field == "projectCards"
+			})
+		}
 	}
 	pr, baseRepo, err := opts.Finder.Find(findOptions)
 	if err != nil {
