@@ -2,6 +2,7 @@ package build
 
 import (
 	"runtime/debug"
+	"strings"
 )
 
 // Version is dynamically set by the toolchain or overridden by the Makefile.
@@ -15,5 +16,8 @@ func init() {
 		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "(devel)" {
 			Version = info.Main.Version
 		}
+	}
+	if !strings.Contains(Version, "+chai.") {
+		Version += "+chai.1"
 	}
 }

@@ -81,6 +81,15 @@ func NewCmdRoot(f *cmdutil.Factory, telemetry ghtelemetry.InvocationRecorder, ve
 			"versionInfo": versionCmd.Format(version, buildDate),
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if f.Workspace != nil {
+				client, err := f.Workspace()
+				if err != nil {
+					return err
+				}
+				if client != nil {
+					return workspacePreRun(cmd, client)
+				}
+			}
 			// require that the user is authenticated before running most commands
 			if cmdutil.IsAuthCheckEnabled(cmd) && !cmdutil.CheckAuth(cfg) {
 				parent := cmd.Parent()
@@ -250,6 +259,9 @@ func NewCmdRoot(f *cmdutil.Factory, telemetry ghtelemetry.InvocationRecorder, ve
 	}
 
 	cmdutil.DisableAuthCheck(cmd)
+	if f.Workspace != nil {
+		guardWorkspaceHooks(cmd, f)
+	}
 	cmdutil.RecordTelemetryForSubcommands(cmd, telemetry)
 
 	// The reference command produces paged output that displays information on every other command.

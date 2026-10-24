@@ -7,14 +7,16 @@ import (
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/cli/v2/internal/gh"
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/cli/cli/v2/pkg/cmdutil"
 	"github.com/cli/cli/v2/pkg/iostreams"
 	"github.com/spf13/cobra"
 )
 
 type TokenOptions struct {
-	IO     *iostreams.IOStreams
-	Config func() (gh.Config, error)
+	Workspace func() (*workspace.Client, error)
+	IO        *iostreams.IOStreams
+	Config    func() (gh.Config, error)
 
 	Hostname      string
 	Username      string
@@ -24,8 +26,9 @@ type TokenOptions struct {
 
 func NewCmdToken(f *cmdutil.Factory, runF func(*TokenOptions) error) *cobra.Command {
 	opts := &TokenOptions{
-		IO:     f.IOStreams,
-		Config: f.Config,
+		Workspace: f.Workspace,
+		IO:        f.IOStreams,
+		Config:    f.Config,
 	}
 
 	cmd := &cobra.Command{
@@ -61,6 +64,15 @@ func NewCmdToken(f *cmdutil.Factory, runF func(*TokenOptions) error) *cobra.Comm
 }
 
 func tokenRun(opts *TokenOptions) error {
+	if opts.Workspace != nil {
+		client, err := opts.Workspace()
+		if err != nil {
+			return err
+		}
+		if client != nil {
+			return workspace.Unsupported("GitHub credentials remain in the workspace manager; no local token is available")
+		}
+	}
 	cfg, err := opts.Config()
 	if err != nil {
 		return err

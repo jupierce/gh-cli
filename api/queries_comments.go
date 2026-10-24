@@ -1,8 +1,11 @@
 package api
 
 import (
+	"context"
+	"fmt"
 	"time"
 
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/shurcooL/githubv4"
 )
 
@@ -54,6 +57,22 @@ type CommentUpdateInput struct {
 }
 
 func CommentCreate(client *Client, repoHost string, params CommentCreateInput) (string, error) {
+	if w := workspace.FromHTTP(client.HTTP()); w != nil {
+		if repoHost != "github.com" {
+			return "", workspace.Unsupported("workspace comments support only github.com")
+		}
+		var result struct {
+			URL string `json:"url"`
+		}
+		err := w.Operation(context.Background(), "comment.create", map[string]any{"host": repoHost, "subject_id": params.SubjectId, "body": params.Body}, &result)
+		if err != nil {
+			return "", err
+		}
+		if result.URL == "" {
+			return "", fmt.Errorf("incomplete workspace comment result; check outcome before retrying")
+		}
+		return result.URL, nil
+	}
 	var mutation struct {
 		AddComment struct {
 			CommentEdge struct {

@@ -10,6 +10,7 @@ import (
 	"github.com/cli/cli/v2/internal/gh/ghtelemetry"
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/internal/prompter"
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/cli/cli/v2/pkg/extensions"
 	"github.com/cli/cli/v2/pkg/iostreams"
 )
@@ -37,6 +38,8 @@ type Factory struct {
 	// We need to revisit that, but I don't want to make it worse.
 	Config     func() (gh.Config, error)
 	HttpClient func() (*http.Client, error)
+	// Workspace returns the manager client, or nil when workspace mode is disabled.
+	Workspace func() (*workspace.Client, error)
 	// PlainHttpClient is a special HTTP client that does not automatically set
 	// auth and other headers. This is meant to be used in situations where the
 	// client needs to specify the headers itself (e.g. during login).

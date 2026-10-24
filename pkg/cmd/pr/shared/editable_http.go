@@ -1,15 +1,37 @@
 package shared
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/cli/cli/v2/api"
 	"github.com/cli/cli/v2/internal/ghrepo"
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/sync/errgroup"
 )
 
 func UpdateIssue(httpClient *http.Client, repo ghrepo.Interface, id string, isPR bool, options Editable) error {
+	if w := workspace.FromHTTP(httpClient); w != nil {
+		if repo.RepoHost() != "github.com" || options.Labels.Edited || options.Projects.Edited || options.Assignees.Edited || options.Reviewers.Edited || options.Milestone.Edited || options.IssueType.Edited || options.Base.Edited {
+			return workspace.Unsupported("workspace edits support only title and body on github.com")
+		}
+		fields := make(map[string]any)
+		if options.Title.Edited {
+			fields["title"] = options.Title.Value
+		}
+		if options.Body.Edited {
+			fields["body"] = options.Body.Value
+		}
+		if len(fields) == 0 {
+			return nil
+		}
+		operation := "issue.edit"
+		if isPR {
+			operation = "pull_request.edit"
+		}
+		return w.Operation(context.Background(), operation, map[string]any{"host": repo.RepoHost(), "repository": ghrepo.FullName(repo), "subject_id": id, "fields": fields}, nil)
+	}
 	var wg errgroup.Group
 
 	// Labels are updated through discrete mutations to avoid having to replace the entire list of labels

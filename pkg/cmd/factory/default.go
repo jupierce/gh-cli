@@ -18,6 +18,7 @@ import (
 	"github.com/cli/cli/v2/internal/gh/ghtelemetry"
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/internal/prompter"
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/cli/cli/v2/pkg/cmd/extension"
 	"github.com/cli/cli/v2/pkg/cmdutil"
 	"github.com/cli/cli/v2/pkg/iostreams"
@@ -44,8 +45,40 @@ func New(appVersion string, invokingAgent string, cfgFunc func() (gh.Config, err
 	f.HttpClient = HttpClientFunc(cfgFunc, ios, appVersion, invokingAgent, telemetryDisabler)
 	f.PlainHttpClient = plainHttpClientFunc(ios, appVersion, invokingAgent, telemetryDisabler)
 	f.ExternalHttpClient = externalHttpClientFunc(ios, appVersion)
+	workspaceConfig := sync.OnceValues(workspace.Load)
+	workspaceHTTP := sync.OnceValues(func() (*http.Client, error) {
+		cfg, err := workspaceConfig()
+		if err != nil || cfg == nil {
+			return nil, err
+		}
+		client, err := api.NewHTTPClient(api.HTTPClientOptions{
+			UnixDomainSocket: cfg.Socket, AppVersion: appVersion, InvokingAgent: invokingAgent,
+			Log: ios.ErrOut, LogColorize: ios.ColorEnabled(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		workspace.Wrap(client, cfg)
+		return client, nil
+	})
+	withWorkspace := func(ordinary func() (*http.Client, error)) func() (*http.Client, error) {
+		return func() (*http.Client, error) {
+			client, err := workspaceHTTP()
+			if err != nil || client != nil {
+				return client, err
+			}
+			return ordinary()
+		}
+	}
+	f.HttpClient = withWorkspace(f.HttpClient)
+	f.PlainHttpClient = withWorkspace(f.PlainHttpClient)
+	f.ExternalHttpClient = withWorkspace(f.ExternalHttpClient)
+	f.Workspace = func() (*workspace.Client, error) {
+		client, err := workspaceHTTP()
+		return workspace.FromHTTP(client), err
+	}
 	f.GitClient = newGitClient(f) // Depends on IOStreams, and Executable
-	f.Remotes = remotesFunc(f)    // Depends on Config, and GitClient
+	f.Remotes = remotesFuncWithWorkspace(f, workspaceConfig)
 	f.BaseRepo = BaseRepoFunc(f.Remotes)
 	f.Prompter = newPrompter(f)              // Depends on Config and IOStreams
 	f.Browser = newBrowser(f)                // Depends on Config, and IOStreams
@@ -184,12 +217,13 @@ func SmartBaseRepoFunc(f *cmdutil.Factory) func() (ghrepo.Interface, error) {
 	}
 }
 
-func remotesFunc(f *cmdutil.Factory) func() (ghContext.Remotes, error) {
+func remotesFuncWithWorkspace(f *cmdutil.Factory, workspaceConfig func() (*workspace.Config, error)) func() (ghContext.Remotes, error) {
 	rr := &remoteResolver{
 		readRemotes: func() (git.RemoteSet, error) {
 			return f.GitClient.Remotes(context.Background())
 		},
-		getConfig: f.Config,
+		getConfig:    f.Config,
+		getWorkspace: workspaceConfig,
 	}
 	return rr.Resolver()
 }

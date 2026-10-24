@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/internal/safeurl"
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/shurcooL/githubv4"
 )
 
@@ -247,6 +249,17 @@ func (r ReviewerTeam) Slug() string {
 func (r ReviewerTeam) sealedReviewerCandidate() {}
 
 func AddReview(client *Client, repo ghrepo.Interface, pr *PullRequest, input *PullRequestReviewInput) error {
+	if w := workspace.FromHTTP(client.HTTP()); w != nil {
+		if input.State != ReviewComment {
+			return workspace.Unsupported("workspace reviews support only comments")
+		}
+		params, err := workspaceRepoParameters(repo, map[string]any{"body": input.Body, "event": "COMMENT"})
+		if err != nil {
+			return err
+		}
+		params["subject_id"] = pr.ID
+		return w.Operation(context.Background(), "pull_request.review", params, nil)
+	}
 	var mutation struct {
 		AddPullRequestReview struct {
 			ClientMutationID string

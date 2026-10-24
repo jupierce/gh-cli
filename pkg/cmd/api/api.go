@@ -76,6 +76,27 @@ func NewCmdApi(f *cmdutil.Factory, runF func(*ApiOptions) error) *cobra.Command 
 		IO:                f.IOStreams,
 		TelemetryDisabler: f.TelemetryDisabler,
 	}
+	if f.Workspace != nil {
+		opts.HttpClient = func(options api.HTTPClientOptions) (*http.Client, error) {
+			manager, err := f.Workspace()
+			if err != nil {
+				return nil, err
+			}
+			if manager == nil {
+				return api.NewHTTPClient(options)
+			}
+			options.UnixDomainSocket = manager.SocketPath()
+			options.Config = nil
+			options.RefreshingConfig = nil
+			options.EnableCache = false
+			client, err := api.NewHTTPClient(options)
+			if err != nil {
+				return nil, err
+			}
+			manager.Bind(client)
+			return client, nil
+		}
+	}
 
 	cmd := &cobra.Command{
 		Use:   "api <endpoint>",

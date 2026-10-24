@@ -17,6 +17,7 @@ import (
 
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/internal/safeurl"
+	"github.com/cli/cli/v2/internal/workspace"
 	ghAPI "github.com/cli/go-gh/v2/pkg/api"
 	"github.com/shurcooL/githubv4"
 )
@@ -593,6 +594,9 @@ type repositoryV3 struct {
 
 // ForkRepo forks the repository on GitHub and returns the new repository
 func ForkRepo(client *Client, repo ghrepo.Interface, org, newName string, defaultBranchOnly bool) (*Repository, error) {
+	if w := workspace.FromHTTP(client.HTTP()); w != nil {
+		return workspaceFork(w, repo, org, newName, defaultBranchOnly)
+	}
 	path, err := safeurl.JoinPath("repos", repo.RepoOwner(), repo.RepoName(), "forks")
 	if err != nil {
 		return nil, err

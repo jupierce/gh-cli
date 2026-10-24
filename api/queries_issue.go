@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cli/cli/v2/internal/ghrepo"
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/shurcooL/githubv4"
 )
 
@@ -324,6 +325,9 @@ func (a CommentAuthor) DisplayName() string {
 
 // IssueCreate creates an issue in a GitHub repository
 func IssueCreate(client *Client, repo *Repository, params map[string]any) (*Issue, error) {
+	if w := workspace.FromHTTP(client.HTTP()); w != nil {
+		return workspaceCreateIssue(w, repo, params)
+	}
 	query := `
 	mutation IssueCreate($input: CreateIssueInput!) {
 		createIssue(input: $input) {

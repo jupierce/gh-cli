@@ -7,6 +7,7 @@ import (
 
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/internal/safeurl"
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/shurcooL/githubv4"
 )
 
@@ -488,6 +489,9 @@ func parseCheckStatusFromCheckConclusionState(state CheckConclusionState) checkS
 
 // CreatePullRequest creates a pull request in a GitHub repository
 func CreatePullRequest(client *Client, repo *Repository, params map[string]any) (*PullRequest, error) {
+	if w := workspace.FromHTTP(client.HTTP()); w != nil {
+		return workspaceCreatePR(w, repo, params)
+	}
 	query := `
 		mutation PullRequestCreate($input: CreatePullRequestInput!) {
 			createPullRequest(input: $input) {

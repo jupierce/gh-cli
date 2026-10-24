@@ -1,6 +1,7 @@
 package status
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -15,6 +16,7 @@ import (
 	"github.com/cli/cli/v2/internal/config"
 	"github.com/cli/cli/v2/internal/gh"
 	"github.com/cli/cli/v2/internal/text"
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/cli/cli/v2/pkg/cmd/auth/shared"
 	"github.com/cli/cli/v2/pkg/cmdutil"
 	"github.com/cli/cli/v2/pkg/iostreams"
@@ -170,6 +172,7 @@ func (e authEntry) String(cs *iostreams.ColorScheme) string {
 }
 
 type StatusOptions struct {
+	Workspace  func() (*workspace.Client, error)
 	HttpClient func() (*http.Client, error)
 	IO         *iostreams.IOStreams
 	Config     func() (gh.Config, error)
@@ -183,6 +186,7 @@ type StatusOptions struct {
 
 func NewCmdStatus(f *cmdutil.Factory, runF func(*StatusOptions) error) *cobra.Command {
 	opts := &StatusOptions{
+		Workspace:  f.Workspace,
 		HttpClient: f.HttpClient,
 		IO:         f.IOStreams,
 		Config:     f.Config,
@@ -246,6 +250,28 @@ func NewCmdStatus(f *cmdutil.Factory, runF func(*StatusOptions) error) *cobra.Co
 }
 
 func statusRun(opts *StatusOptions) error {
+	if opts.Workspace != nil {
+		client, err := opts.Workspace()
+		if err != nil {
+			return err
+		}
+		if client != nil {
+			caps, err := client.Capabilities(context.Background())
+			if err != nil {
+				return err
+			}
+			if opts.Hostname != "" && opts.Hostname != caps.Host {
+				return workspace.Unsupported("the workspace manager serves only " + caps.Host)
+			}
+			statuses := newAuthStatus()
+			statuses.Hosts[caps.Host] = []authEntry{{State: authEntryStateSuccess, Active: true, Host: caps.Host, Login: caps.Login, TokenSource: "workspace-manager", GitProtocol: "https"}}
+			if opts.Exporter != nil {
+				return opts.Exporter.Write(opts.IO, statuses)
+			}
+			fmt.Fprintf(opts.IO.Out, "%s\n  Workspace manager identity: %s\n  Credentials: manager-held (no local token)\n  Generation: %s\n", caps.Host, caps.Login, caps.Generation)
+			return nil
+		}
+	}
 	cfg, err := opts.Config()
 	if err != nil {
 		return err

@@ -9,6 +9,7 @@ import (
 	"github.com/cli/cli/v2/git"
 	"github.com/cli/cli/v2/internal/gh"
 	"github.com/cli/cli/v2/internal/ghinstance"
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/cli/cli/v2/pkg/set"
 	"github.com/cli/go-gh/v2/pkg/ssh"
 )
@@ -20,6 +21,7 @@ const (
 type remoteResolver struct {
 	readRemotes   func() (git.RemoteSet, error)
 	getConfig     func() (gh.Config, error)
+	getWorkspace  func() (*workspace.Config, error)
 	urlTranslator context.Translator
 	cachedRemotes context.Remotes
 	remotesError  error
@@ -45,6 +47,16 @@ func (rr *remoteResolver) Resolver() func() (context.Remotes, error) {
 		if sshTranslate == nil {
 			sshTranslate = ssh.NewTranslator()
 		}
+		var workspaceConfig *workspace.Config
+		if rr.getWorkspace != nil {
+			workspaceConfig, err = rr.getWorkspace()
+			if err != nil {
+				return nil, err
+			}
+			if workspaceConfig != nil {
+				sshTranslate = workspace.Translator{Config: workspaceConfig, Fallback: sshTranslate}
+			}
+		}
 		resolvedRemotes := context.TranslateRemotes(gitRemotes, sshTranslate)
 
 		cfg, err := rr.getConfig()
@@ -53,6 +65,9 @@ func (rr *remoteResolver) Resolver() func() (context.Remotes, error) {
 		}
 
 		authedHosts := cfg.Authentication().Hosts()
+		if workspaceConfig != nil {
+			authedHosts = []string{workspaceConfig.Host}
+		}
 		if len(authedHosts) == 0 {
 			return nil, errors.New("could not find any host configurations")
 		}

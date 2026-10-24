@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cli/cli/v2/internal/gh/ghtelemetry"
+	"github.com/cli/cli/v2/internal/workspace"
 	"github.com/cli/cli/v2/pkg/auth"
 	"github.com/cli/cli/v2/utils"
 	ghAPI "github.com/cli/go-gh/v2/pkg/api"
@@ -33,9 +34,11 @@ type refreshingConfig interface {
 }
 
 type HTTPClientOptions struct {
-	AppVersion    string
-	InvokingAgent string
-	CacheTTL      time.Duration
+	// UnixDomainSocket selects upstream's socket transport without rewriting API hosts.
+	UnixDomainSocket string
+	AppVersion       string
+	InvokingAgent    string
+	CacheTTL         time.Duration
 	// Config is the primitive, backward-compatible token source for authenticating requests. Provide either Config or
 	// RefreshingConfig, never both; NewHTTPClient returns an error if both are set. A token from Config is used as-is,
 	// with no refresh.
@@ -68,6 +71,7 @@ func NewHTTPClient(opts HTTPClientOptions) (*http.Client, error) {
 		AuthToken:          "none",
 		LogIgnoreEnv:       true,
 		SkipDefaultHeaders: opts.SkipDefaultHeaders,
+		UnixDomainSocket:   opts.UnixDomainSocket,
 	}
 
 	debugEnabled, debugValue := utils.IsDebugEnabled()
@@ -164,6 +168,11 @@ func NewExternalHTTPClient(opts ExternalHTTPClientOptions) (*http.Client, error)
 
 func NewCachedHTTPClient(httpClient *http.Client, ttl time.Duration) *http.Client {
 	newClient := *httpClient
+	// Workspace responses depend on live manager policy and generation. Keep the
+	// workspace transport visible to typed operations and leave caching to the manager.
+	if workspace.FromHTTP(httpClient) != nil {
+		return &newClient
+	}
 	newClient.Transport = AddCacheTTLHeader(httpClient.Transport, ttl)
 	return &newClient
 }
