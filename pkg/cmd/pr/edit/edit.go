@@ -17,6 +17,7 @@ import (
 	"github.com/cli/cli/v2/internal/gh/ghtelemetry"
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/internal/prompter"
+	"github.com/cli/cli/v2/internal/workspace"
 	shared "github.com/cli/cli/v2/pkg/cmd/pr/shared"
 	"github.com/cli/cli/v2/pkg/cmdutil"
 	"github.com/cli/cli/v2/pkg/iostreams"
@@ -318,6 +319,11 @@ func editRun(opts *EditOptions) error {
 		findOptions.Fields = append(findOptions.Fields, "assignedActors")
 	} else {
 		findOptions.Fields = append(findOptions.Fields, "assignees")
+	}
+	if workspace.FromHTTP(httpClient) != nil {
+		// Workspace edits support title/body only. Avoid unrelated project and
+		// membership reads whose authorization is outside that operation.
+		findOptions.Fields = []string{"id", "number", "url", "title", "body"}
 	}
 
 	pr, repo, err := opts.Finder.Find(findOptions)
